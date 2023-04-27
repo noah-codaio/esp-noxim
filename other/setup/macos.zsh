@@ -51,19 +51,19 @@ if [[ $OSTYPE == 'darwin'* ]]; then
     # check if noxim already downloaded
     # -> try to update if it does
     # -> clone if not
-    echo -e $MAGENTA"Downloading noxim..."$RESET
-    if [ -d "./noxim" ]; then
-        echo -e $GREEN"noxim repository already exists."$RESET
-        echo "Pulling from origin..."
-        cd noxim 
-        git pull
-        cd bin
-    else 
-        git clone https://github.com/davidepatti/noxim
-        echo -e $GREEN"noxim downloaded."$RESET
-        cd noxim/bin
-    fi
-    echo
+    # echo -e $MAGENTA"Downloading noxim..."$RESET
+    # if [ -d "./noxim" ]; then
+    #     echo -e $GREEN"noxim repository already exists."$RESET
+    #     echo "Pulling from origin..."
+    #     cd noxim 
+    #     git pull
+    #     cd bin
+    # else 
+    #     git clone https://github.com/davidepatti/noxim
+    #     echo -e $GREEN"noxim downloaded."$RESET
+    #     cd noxim/bin
+    # fi
+    # echo
 
     # libs directory
     mkdir -p libs

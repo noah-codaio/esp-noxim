@@ -439,7 +439,20 @@ void GlobalStats::showStats(std::ostream & out, bool detailed)
 
 	for (int y = 0; y < GlobalParams::mesh_dim_y; y++)
 	    for (int x = 0; x < GlobalParams::mesh_dim_x; x++)
-		noc->t[x][y]->r->stats.showStats(y * GlobalParams:: mesh_dim_x + x, out, true);
+			noc->t[x][y]->r->stats.showStats(y * GlobalParams:: mesh_dim_x + x, out, true);
+
+	// Print final state of local memories
+	out << endl;
+	for (int y = 0; y < GlobalParams::mesh_dim_y; y++)
+	    for (int x = 0; x < GlobalParams::mesh_dim_x; x++) {
+			out << "Tile " << noc->t[x][y]->pe->local_id << " local memory: [";
+			for (int i = 0; i < noc->t[x][y]->pe->local_memory.size(); i++) {
+				if (i != 0) out << ", ";
+				out << noc->t[x][y]->pe->local_memory[i].data;
+			}
+			out << "]" << endl;
+		}
+
 	out << "];" << endl;
 
 	// show MaxDelay matrix

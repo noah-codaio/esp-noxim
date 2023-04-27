@@ -12,11 +12,14 @@
 #define __NOXIMPROCESSINGELEMENT_H__
 
 #include <queue>
+#include <vector>
 #include <systemc.h>
 
 #include "DataStructs.h"
 #include "GlobalTrafficTable.h"
 #include "Utils.h"
+
+#include "../../../accelerators/stratus_hls/fft_stratus/hw/tb/system.hpp"
 
 using namespace std;
 
@@ -45,6 +48,9 @@ SC_MODULE(ProcessingElement)
     bool current_level_tx;	// Current level for Alternating Bit Protocol (ABP)
     queue < Packet > packet_queue;	// Local queue of packets
     bool transmittedAtPreviousCycle;	// Used for distributions with memory
+    bool has_rx_packet;
+    Packet prev_rx_packet;      // The previously received packet
+    vector < Payload > local_memory;
 
     // Functions
     void rxProcess();		// The receiving process
@@ -60,6 +66,7 @@ SC_MODULE(ProcessingElement)
     Packet trafficButterfly();	// Butterfly destination distribution
     Packet trafficLocal();	// Random with locality
     Packet trafficULocal();	// Random with locality
+    void initializeMemory();
 
     GlobalTrafficTable *traffic_table;	// Reference to the Global traffic Table
     bool never_transmit;	// true if the PE does not transmit any packet 
@@ -76,6 +83,8 @@ SC_MODULE(ProcessingElement)
     int findRandomDestination(int local_id,int hops);
     unsigned int getQueueSize() const;
 
+    system_t * esp_system = NULL;
+
     // Constructor
     SC_CTOR(ProcessingElement) {
 	SC_METHOD(rxProcess);
@@ -85,8 +94,11 @@ SC_MODULE(ProcessingElement)
 	SC_METHOD(txProcess);
 	sensitive << reset;
 	sensitive << clock.pos();
-    }
 
+    esp_system = new system_t("esp");
+    esp_system->clk(clock);
+    esp_system->rst(reset);
+    }
 };
 
 #endif

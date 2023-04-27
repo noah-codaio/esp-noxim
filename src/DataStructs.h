@@ -12,6 +12,7 @@
 #define _DATASTRUCS_H__
 
 #include <systemc.h>
+#include <vector>
 #include "GlobalParams.h"
 
 // Coord -- XY coordinates type of the Tile inside the Mesh
@@ -19,6 +20,9 @@ class Coord {
   public:
     int x;			// X coordinate
     int y;			// Y coordinate
+
+    Coord(int x_pos, int y_pos) { x = x_pos; y = y_pos; }
+    Coord() { }
 
     inline bool operator ==(const Coord & coord) const {
 	return (coord.x == x && coord.y == y);
@@ -33,6 +37,10 @@ enum FlitType {
 struct Payload {
     sc_uint<32> data;	// Bus for the data to be exchanged
 
+    // Constructors
+    Payload() { }
+    Payload(sc_uint<32> d) { data = d; }
+
     inline bool operator ==(const Payload & payload) const {
 	return (payload.data == data);
 }};
@@ -46,6 +54,7 @@ struct Packet {
     int size;
     int flit_left;		// Number of remaining flits inside the packet
     bool use_low_voltage_path;
+    vector < Payload > payloads;
 
     // Constructors
     Packet() { }

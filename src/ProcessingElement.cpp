@@ -9,6 +9,25 @@
  */
 
 #include "ProcessingElement.h"
+#include <iostream>
+
+int READ_REQUEST = 100;
+int READ_RESPONSE = 200;
+
+void ProcessingElement::initializeMemory() 
+{
+    if (local_id == 0) {
+        local_memory.push_back(Payload(555));
+    }
+    else if (local_id == 5) {
+        double now = sc_time_stamp().to_double() / GlobalParams::clock_period_ps;
+        Packet packet = Packet(5, 0, 0, now, 3);
+        packet.payloads.push_back(Payload(100)); // Read type
+        packet.payloads.push_back(Payload(0)); // Address 0
+        packet.payloads.push_back(Payload(1)); // Size 1
+        packet_queue.push(packet);
+    }
+}
 
 int ProcessingElement::randInt(int min, int max)
 {
@@ -25,6 +44,39 @@ void ProcessingElement::rxProcess()
 	if (req_rx.read() == 1 - current_level_rx) {
 	    Flit flit_tmp = flit_rx.read();
 	    current_level_rx = 1 - current_level_rx;	// Negate the old value for Alternating Bit Protocol (ABP)
+        
+        // Build incoming packet as flits are received
+        if (!has_rx_packet) {
+           prev_rx_packet.make(flit_tmp.src_id, flit_tmp.dst_id, flit_tmp.vc_id, flit_tmp.timestamp, flit_tmp.sequence_length);
+        }
+        prev_rx_packet.payloads.push_back(flit_tmp.payload);
+
+        // Check for known packet types when full packet has been received
+        if (flit_tmp.sequence_no == flit_tmp.sequence_length - 1) {
+            // Detect read request packet
+            if (prev_rx_packet.payloads[0].data == 100 && prev_rx_packet.payloads.size() == 3) {
+                int start = prev_rx_packet.payloads[1].data;
+                int size = prev_rx_packet.payloads[2].data;
+
+                // If the data is within local memory, send it as a read response
+                if (start + size - 1 < local_memory.size()) {
+                    double now = sc_time_stamp().to_double() / GlobalParams::clock_period_ps;
+                    Packet data_packet = Packet(flit_tmp.dst_id, flit_tmp.src_id, 0, now, size + 1);
+                    data_packet.payloads.push_back(Payload(READ_RESPONSE));
+                    data_packet.payloads.insert(data_packet.payloads.end(), local_memory.begin() + start, local_memory.begin() + start + size);
+                    packet_queue.push(data_packet);
+                }
+            }
+            // Detect read response packet
+            else if (prev_rx_packet.payloads[0].data == READ_RESPONSE && prev_rx_packet.payloads.size() > 1) {
+                local_memory.insert(local_memory.end(), prev_rx_packet.payloads.begin() + 1, prev_rx_packet.payloads.end());
+            }
+
+            // Clear packet data to receive next
+            has_rx_packet = false;
+            prev_rx_packet.payloads.clear();
+        }
+
 	}
 	ack_rx.write(current_level_rx);
     }
@@ -70,6 +122,9 @@ Flit ProcessingElement::nextFlit()
     flit.sequence_length = packet.size;
     flit.hop_no = 0;
     //  flit.payload     = DEFAULT_PAYLOAD;
+    if (flit.sequence_no < packet.payloads.size()) {
+        flit.payload = packet.payloads[flit.sequence_no];
+    }
 
     flit.hub_relay_node = NOT_VALID;
 
