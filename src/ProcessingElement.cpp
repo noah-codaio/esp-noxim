@@ -11,22 +11,47 @@
 #include "ProcessingElement.h"
 #include <iostream>
 
-int READ_REQUEST = 100;
-int READ_RESPONSE = 200;
+unsigned int READ_REQUEST = 100;
+unsigned int READ_RESPONSE = 200;
+unsigned int WRITE_REQUEST = 300;
 
-void ProcessingElement::initializeMemory() 
+void ProcessingElement::pushDataToLocalMemory(int address, int size, int *data)
 {
-    if (local_id == 0) {
-        local_memory.push_back(Payload(555));
-    }
-    else if (local_id == 5) {
-        double now = sc_time_stamp().to_double() / GlobalParams::clock_period_ps;
-        Packet packet = Packet(5, 0, 0, now, 3);
-        packet.payloads.push_back(Payload(100)); // Read type
-        packet.payloads.push_back(Payload(0)); // Address 0
-        packet.payloads.push_back(Payload(1)); // Size 1
-        packet_queue.push(packet);
-    }
+    double now = sc_time_stamp().to_double() / GlobalParams::clock_period_ps;
+    for (int i = 0; i < size; i++)
+        local_memory.emplace(local_memory.begin() + address, Payload(data[i]));
+}
+
+void ProcessingElement::pushReadRequest(int from_id, int address, int size)
+{
+    double now = sc_time_stamp().to_double() / GlobalParams::clock_period_ps;
+    Packet packet = Packet(local_id, from_id, 0, now, 3);
+    packet.payloads.push_back(Payload(READ_REQUEST)); // Read type
+    packet.payloads.push_back(Payload(address)); // Address
+    packet.payloads.push_back(Payload(size)); // Size
+    packet_queue.push(packet); 
+}
+
+void ProcessingElement::pushReadResponse(int to_id, int address, int size)
+{
+    double now = sc_time_stamp().to_double() / GlobalParams::clock_period_ps;
+    Packet packet = Packet(local_id, to_id, 0, now, size + 3);
+    packet.payloads.push_back(Payload(READ_RESPONSE)); // Read response type
+    packet.payloads.push_back(Payload(address)); // Address
+    packet.payloads.push_back(Payload(size)); // Size
+    packet.payloads.insert(packet.payloads.end(), local_memory.begin() + address, local_memory.begin() + address + size); // Data
+    packet_queue.push(packet);
+}
+
+void ProcessingElement::pushWriteRequest(int to_id, int address, int size)
+{
+    double now = sc_time_stamp().to_double() / GlobalParams::clock_period_ps;
+    Packet packet = Packet(local_id, to_id, 0, now, size + 3);
+    packet.payloads.push_back(Payload(WRITE_REQUEST)); // Write type
+    packet.payloads.push_back(Payload(address)); // Address
+    packet.payloads.push_back(Payload(size)); // Size
+    packet.payloads.insert(packet.payloads.end(), local_memory.begin() + address, local_memory.begin() + address + size); // Data
+    packet_queue.push(packet); 
 }
 
 int ProcessingElement::randInt(int min, int max)
@@ -54,22 +79,21 @@ void ProcessingElement::rxProcess()
         // Check for known packet types when full packet has been received
         if (flit_tmp.sequence_no == flit_tmp.sequence_length - 1) {
             // Detect read request packet
-            if (prev_rx_packet.payloads[0].data == 100 && prev_rx_packet.payloads.size() == 3) {
-                int start = prev_rx_packet.payloads[1].data;
+            if (prev_rx_packet.payloads[0].data == READ_REQUEST && prev_rx_packet.payloads.size() == 3) {
+                int address = prev_rx_packet.payloads[1].data;
                 int size = prev_rx_packet.payloads[2].data;
-
                 // If the data is within local memory, send it as a read response
-                if (start + size - 1 < local_memory.size()) {
-                    double now = sc_time_stamp().to_double() / GlobalParams::clock_period_ps;
-                    Packet data_packet = Packet(flit_tmp.dst_id, flit_tmp.src_id, 0, now, size + 1);
-                    data_packet.payloads.push_back(Payload(READ_RESPONSE));
-                    data_packet.payloads.insert(data_packet.payloads.end(), local_memory.begin() + start, local_memory.begin() + start + size);
-                    packet_queue.push(data_packet);
+                if (address + size - 1 < local_memory.size()) {
+                    pushReadResponse(flit_tmp.src_id, address, size);
                 }
             }
             // Detect read response packet
-            else if (prev_rx_packet.payloads[0].data == READ_RESPONSE && prev_rx_packet.payloads.size() > 1) {
-                local_memory.insert(local_memory.end(), prev_rx_packet.payloads.begin() + 1, prev_rx_packet.payloads.end());
+            else if (prev_rx_packet.payloads[0].data == READ_RESPONSE && prev_rx_packet.payloads.size() > 3) {
+                local_memory.insert(local_memory.end(), prev_rx_packet.payloads.begin() + 3, prev_rx_packet.payloads.end());
+            }
+            // Detect write request packet
+            else if (prev_rx_packet.payloads[0].data == WRITE_REQUEST && prev_rx_packet.payloads.size() > 3) {
+                local_memory.insert(local_memory.end(), prev_rx_packet.payloads.begin() + 3, prev_rx_packet.payloads.end());
             }
 
             // Clear packet data to receive next

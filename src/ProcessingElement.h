@@ -19,8 +19,6 @@
 #include "GlobalTrafficTable.h"
 #include "Utils.h"
 
-#include "../../../accelerators/stratus_hls/fft_stratus/hw/tb/system.hpp"
-
 using namespace std;
 
 SC_MODULE(ProcessingElement)
@@ -66,7 +64,11 @@ SC_MODULE(ProcessingElement)
     Packet trafficButterfly();	// Butterfly destination distribution
     Packet trafficLocal();	// Random with locality
     Packet trafficULocal();	// Random with locality
-    void initializeMemory();
+
+    void pushDataToLocalMemory(int address, int size, int *data);
+    void pushReadRequest(int from_id, int address, int size);
+    void pushReadResponse(int to_id, int address, int size);
+    void pushWriteRequest(int to_id, int address, int size);
 
     GlobalTrafficTable *traffic_table;	// Reference to the Global traffic Table
     bool never_transmit;	// true if the PE does not transmit any packet 
@@ -83,8 +85,6 @@ SC_MODULE(ProcessingElement)
     int findRandomDestination(int local_id,int hops);
     unsigned int getQueueSize() const;
 
-    system_t * esp_system = NULL;
-
     // Constructor
     SC_CTOR(ProcessingElement) {
 	SC_METHOD(rxProcess);
@@ -94,10 +94,6 @@ SC_MODULE(ProcessingElement)
 	SC_METHOD(txProcess);
 	sensitive << reset;
 	sensitive << clock.pos();
-
-    esp_system = new system_t("esp");
-    esp_system->clk(clock);
-    esp_system->rst(reset);
     }
 };
 

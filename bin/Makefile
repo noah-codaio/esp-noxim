@@ -1,6 +1,6 @@
 ##### LIBRARIES CONFIGURATION #####
 
-SYSTEMC := libs/systemc-2.3.1
+SYSTEMC := /opt/systemc-2.3.0#libs/systemc-2.3.1
 YAML    := libs/yaml-cpp
 
 
@@ -25,10 +25,10 @@ OPT      := -O3
 # to enable logs with LOG macro, uncomment "-g DDEBUG" in the line below
 # and recompile everythin (make clean)
 #DEBUG    :=  -g -DDEBUG
-OTHER    := -Wall -DSC_NO_WRITE_CHECK --std=c++11 # -Wno-deprecated
+OTHER    := -Wall -DSC_NO_WRITE_CHECK --std=c++11 -DSC_INCLUDE_DYNAMIC_PROCESSES -lsystemc-2.3.0 -Wl,-rpath,/opt/systemc-2.3.0/lib-linux64 #-Wno-deprecated
 CXXFLAGS := $(OPT) $(OTHER) $(DEBUG)
 
-INCDIR := -I$(SRCDIR) -isystem $(SYSTEMC)/include -I$(YAML)/include
+INCDIR := -I$(SRCDIR) -isystem $(SYSTEMC)/include -I$(YAML)/include -I../../../accelerators/stratus_hls/fft_stratus/hw/src -I/opt/cadence/stratus2024/share/stratus/include -I../../../accelerators/stratus_hls/common/inc
 LIBDIR := -L$(SRCDIR) -L$(SYSTEMC_LIBS) -L$(YAML)/lib
 
 LIBS := -lsystemc -lm -lyaml-cpp 
